@@ -1,0 +1,15 @@
+
+paths:
+  cifar: ./data
+  model: ./cifar_net.pth
+  classes: ./data/classes.txt
+train:
+  num_classes: 10
+  num_epochs: 10
+loader:
+  batch_size: 4
+  num_workers: 2
+photo:
+  dimension: 32
+
+

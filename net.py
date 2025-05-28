@@ -5,7 +5,34 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import torch
 from collections import defaultdict
-from tqdm import tqdm  # if not installed: pip install tqdm
+from tqdm import tqdm
+import pandas as pd
+
+
+
+def display_confusion_matrix(class_correct: defaultdict, class_total: defaultdict):
+    classes = sorted(class_total.keys())
+
+    # Initialize confusion matrix with zeros
+    matrix = {true: {pred: 0 for pred in classes} for true in classes}
+
+    for cls in classes:
+        correct = class_correct.get(cls, 0)
+        total = class_total.get(cls, 0)
+        incorrect = total - correct
+
+        # Place correct predictions on the diagonal
+        matrix[cls][cls] = correct
+
+        # Distribute incorrects (we’ll just assign to the other class for illustration)
+        other_classes = [c for c in classes if c != cls]
+        if other_classes:
+            matrix[cls][other_classes[0]] = incorrect
+
+    # Convert to DataFrame for better display
+    df = pd.DataFrame(matrix).T  # rows: true labels, cols: predicted labels
+    print(df)
+
 
 class Net(nn.Module):
     def __init__(self, in_channels: int, dim: int, num_classes: int):
@@ -65,33 +92,57 @@ class Net(nn.Module):
 
         print('Finished Training')
         sys.stdout.flush()
-    from tqdm import tqdm  # if not installed: pip install tqdm
 
-    def test(self, test_loader: DataLoader, classes: list[str]):
+    def test(self, test_loader: DataLoader, model_classes: list[str], test_classes: list[str]):
         self.eval()
 
         correct_total = 0
-        total_samples = 0
+        total_samples = len(test_loader.dataset)
+        print(f"total samples: {total_samples}")
         class_correct = defaultdict(int)
         class_total = defaultdict(int)
+        true_labels = []
+        predictions = []
+
+        # Initialize confusion matrix as nested dict of ints
+        confusion_matrix = {true_cls: {pred_cls: 0 for pred_cls in model_classes} for true_cls in model_classes}
 
         with torch.no_grad():
             for images, labels in tqdm(test_loader, desc="Testing"):
                 outputs = self(images)
                 _, predicted = torch.max(outputs, 1)
 
-                total_samples += labels.size(0)
-                correct_total += (predicted == labels).sum().item()
-
                 for label, prediction in zip(labels, predicted):
-                    class_total[classes[label]] += 1
-                    if prediction == label:
-                        class_correct[classes[label]] += 1
+                    label_idx = label.item()
+                    prediction_idx = prediction.item()
 
+                    label_name = test_classes[label_idx]
+                    prediction_name = model_classes[prediction_idx]
+
+                    true_labels.append(label_name)
+                    predictions.append(prediction_name)
+
+                    class_total[label_name] += 1
+                    confusion_matrix[label_name][prediction_name] += 1  # Update confusion matrix
+
+                    if label_name == prediction_name:
+                        class_correct[label_name] += 1
+                        correct_total += 1
+
+        print('True values: ', ' '.join(true_labels))
+        print('Predictions: ', ' '.join(predictions))
         print(f'\nTotal accuracy: {100 * correct_total / total_samples:.2f}%')
+
         print("\nPer-class accuracy:")
-        for class_name in classes:
+        for class_name in model_classes:
             if class_total[class_name] > 0:
                 acc = 100 * class_correct[class_name] / class_total[class_name]
                 print(f'{class_name:15s}: {acc:5.2f}%')
+
+        # Display confusion matrix as pandas DataFrame
+        df_cm = pd.DataFrame(confusion_matrix).T
+        print("\nConfusion Matrix:")
+        pd.set_option('display.max_columns', None)
+        print(df_cm)
+
         sys.stdout.flush()

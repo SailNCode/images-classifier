@@ -11,5 +11,10 @@ def load(path: str, in_channels: int, dim: int, num_classes: int) -> Net:
     net = Net(in_channels, dim, num_classes)
     net.load_state_dict(torch.load(path, weights_only=True))
     return net
+def load_classes(path: str) -> list[str]:
+    with open(path, "r") as file:
+        categories = [line.strip() for line in file]
+
+    return categories
 
 
