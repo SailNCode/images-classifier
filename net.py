@@ -6,32 +6,12 @@ from torch.utils.data import DataLoader
 import torch
 from collections import defaultdict
 from tqdm import tqdm
-import pandas as pd
+from shutil import copy2
+from pathlib import Path
+from PIL import Image
 
-
-
-def display_confusion_matrix(class_correct: defaultdict, class_total: defaultdict):
-    classes = sorted(class_total.keys())
-
-    # Initialize confusion matrix with zeros
-    matrix = {true: {pred: 0 for pred in classes} for true in classes}
-
-    for cls in classes:
-        correct = class_correct.get(cls, 0)
-        total = class_total.get(cls, 0)
-        incorrect = total - correct
-
-        # Place correct predictions on the diagonal
-        matrix[cls][cls] = correct
-
-        # Distribute incorrects (we’ll just assign to the other class for illustration)
-        other_classes = [c for c in classes if c != cls]
-        if other_classes:
-            matrix[cls][other_classes[0]] = incorrect
-
-    # Convert to DataFrame for better display
-    df = pd.DataFrame(matrix).T  # rows: true labels, cols: predicted labels
-    print(df)
+import Gui
+import ImageHandler
 
 
 class Net(nn.Module):
@@ -41,7 +21,7 @@ class Net(nn.Module):
         self.pool = nn.MaxPool2d(2, 2) #stride - moving by 2
         self.conv2 = nn.Conv2d(6, 16, 5)
         #for config purposes:
-        dummy_input = torch.zeros(1, in_channels, dim, dim)  # batch=1, channels=3, 32x32 image
+        dummy_input = torch.zeros(1, in_channels, dim, dim)
         dummy = self.pool(F.relu(self.conv1(dummy_input)))
         dummy = self.pool(F.relu(self.conv2(dummy)))
         num_features = dummy.numel()
@@ -60,33 +40,32 @@ class Net(nn.Module):
         return x
 
     def train_on(self, train_loader: DataLoader, num_epochs: int):
+        if train_loader is None:
+            print("No training data. Aborting...")
+            return
+
         print("Training initiated...")
         num_batches = len(train_loader)
         print(f"Images to process: {num_batches * train_loader.batch_size} (in {num_batches} batches)")
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(self.parameters(), lr=0.001)
-        #optimizer = optim.SGD(self.parameters(), lr=0.001, momentum=0.9)
 
-        for epoch in range(num_epochs):  # loop over the dataset multiple times
+        for epoch in range(num_epochs):
 
             running_loss = 0.0
             for i, data in enumerate(train_loader, 0):
-                # get the inputs; data is a list of [inputs, labels]
                 inputs, labels = data
 
-                # zero the parameter gradients
                 optimizer.zero_grad()
 
-                # forward + backward + optimize
                 outputs = self(inputs)
                 loss = criterion(outputs, labels)
                 loss.backward()
                 optimizer.step()
 
-                # print statistics
                 running_loss += loss.item()
-                if i % 250 == 249:  # print every 2000 mini-batches
-                    print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 2000:.3f}')
+                if i % 250 == 249:
+                    print(f'[{epoch + 1}, {i + 1:5d}] loss: {running_loss / 250:.3f}')
                     sys.stdout.flush()
                     running_loss = 0.0
 
@@ -94,17 +73,18 @@ class Net(nn.Module):
         sys.stdout.flush()
 
     def test(self, test_loader: DataLoader, model_classes: list[str], test_classes: list[str]):
+        if test_loader is None:
+            print("No testing data. Aborting...")
+            return
         self.eval()
 
         correct_total = 0
         total_samples = len(test_loader.dataset)
-        print(f"total samples: {total_samples}")
+        print(f"Images to test: {total_samples}")
         class_correct = defaultdict(int)
         class_total = defaultdict(int)
-        true_labels = []
-        predictions = []
 
-        # Initialize confusion matrix as nested dict of ints
+
         confusion_matrix = {true_cls: {pred_cls: 0 for pred_cls in model_classes} for true_cls in model_classes}
 
         with torch.no_grad():
@@ -119,18 +99,13 @@ class Net(nn.Module):
                     label_name = test_classes[label_idx]
                     prediction_name = model_classes[prediction_idx]
 
-                    true_labels.append(label_name)
-                    predictions.append(prediction_name)
-
                     class_total[label_name] += 1
-                    confusion_matrix[label_name][prediction_name] += 1  # Update confusion matrix
+                    confusion_matrix[label_name][prediction_name] += 1
 
                     if label_name == prediction_name:
                         class_correct[label_name] += 1
                         correct_total += 1
 
-        print('True values: ', ' '.join(true_labels))
-        print('Predictions: ', ' '.join(predictions))
         print(f'\nTotal accuracy: {100 * correct_total / total_samples:.2f}%')
 
         print("\nPer-class accuracy:")
@@ -139,10 +114,44 @@ class Net(nn.Module):
                 acc = 100 * class_correct[class_name] / class_total[class_name]
                 print(f'{class_name:15s}: {acc:5.2f}%')
 
-        # Display confusion matrix as pandas DataFrame
-        df_cm = pd.DataFrame(confusion_matrix).T
-        print("\nConfusion Matrix:")
-        pd.set_option('display.max_columns', None)
-        print(df_cm)
+        Gui.display_confusion_matrix(confusion_matrix)
 
-        sys.stdout.flush()
+    def categorize_and_save_images(
+            self,
+            input_dir: str,
+            output_dir: str,
+            model_classes: list[str],
+            supported_exts=(".jpg", ".jpeg", ".png")
+    ):
+        input_dir = Path(input_dir)
+        output_dir = Path(output_dir)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.to(device)
+        self.eval()
+
+        image_paths = list(input_dir.rglob("*"))
+        num_all_files = len(image_paths)
+        image_paths = [p for p in image_paths if p.suffix.lower() in supported_exts]
+        num_images = len(image_paths)
+        print(f"Found {num_images} images in {num_all_files - num_images + 1} folders.")
+
+
+        for img_path in tqdm(image_paths, desc="Categorizing images"):
+            try:
+                with Image.open(img_path) as img:
+                    img_tensor = ImageHandler.resize_tensor_normalize(img).unsqueeze(0).to(device)
+                    with torch.no_grad():
+                        output = self(img_tensor)
+                        _, pred_idx = torch.max(output, 1)
+                        pred_class = model_classes[pred_idx.item()]
+            except Exception as e:
+                print(f"Error processing {img_path}: {e}")
+                continue
+
+            dest_dir = output_dir / pred_class
+            dest_dir.mkdir(parents=True, exist_ok=True)
+            copy2(img_path, dest_dir / img_path.name)
+
+        print("Categorizing completed.")
+        print("Images saved under: " + output_dir.__str__())
+        Gui.show_category_browser(output_dir)

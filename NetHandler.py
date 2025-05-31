@@ -16,5 +16,20 @@ def load_classes(path: str) -> list[str]:
         categories = [line.strip() for line in file]
 
     return categories
+def flatten_confusion_matrix(confusion_matrix):
+    if not confusion_matrix:
+        return []
 
+    labels = sorted(confusion_matrix.keys())
+
+    rows = [["True\\Pred"] + labels]
+
+    for true_label in labels:
+        row = [true_label]
+        for pred_label in labels:
+            count = confusion_matrix[true_label].get(pred_label, 0)
+            row.append(count)
+        rows.append(row)
+
+    return rows
 

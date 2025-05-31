@@ -2,7 +2,7 @@
 paths:
   cifar: ./data
   model: ./cifar_net.pth
-  classes: ./data/classes.txt
+  categories: ./data/categories.txt
 train:
   num_classes: 10
   num_epochs: 10

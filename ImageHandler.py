@@ -1,6 +1,4 @@
 import torchvision.transforms as transforms
-import random
-from collections import defaultdict
 import Config
 
 config = Config.get_config()
