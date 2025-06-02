@@ -47,6 +47,7 @@ def option_dialog(title, question, options):
         btn = tk.Button(dialog, text=option, width=max_btn_width, command=lambda opt=i: on_click(opt))
         btn.grid(row=i, column=0, pady=5, padx=20)
 
+    # center the window
     dialog.update_idletasks()
     w = dialog.winfo_width()
     h = dialog.winfo_height()
@@ -65,7 +66,7 @@ def show_main_panel(title, question, options, model_path, categories, states):
 
     dialog = tk.Toplevel(root)
     dialog.title(title)
-    dialog.resizable(False, False)
+    #dialog.resizable(False, False)
     dialog.grab_set()
 
     bold_font = font.nametofont("TkDefaultFont").copy()
@@ -84,33 +85,34 @@ def show_main_panel(title, question, options, model_path, categories, states):
         btn = tk.Button(dialog, text=option, width=max_btn_width, command=lambda opt=i: on_click(opt), state=state)
         btn.grid(row=i, column=0, pady=5, padx=20)
 
-    fixed_info = [{"name": "Model information", "font": "bold"}]
+    info_list = [{"name": "Model information", "font": "bold"}]
     if model_path is None and categories is None:
-        fixed_info.append({"name": "No model selected"})
+        info_list.append({"name": "No model selected"})
     if model_path:
-        fixed_info.append({"name": "Path: " + model_path, "sticky": "w", "font": "bold"})
+        info_list.append({"name": "Path: " + model_path, "sticky": "w", "font": "bold"})
     if categories:
-        fixed_info.append({"name": "Num categories: " + str(len(categories)), "sticky": "w", "font": "bold"})
-        fixed_info.append({"name": "Categories: ", "sticky": "w", "font": "bold"})
+        info_list.append({"name": "Num categories: " + str(len(categories)), "sticky": "w", "font": "bold"})
+        info_list.append({"name": "Categories: ", "sticky": "w", "font": "bold"})
 
-    for i, part in enumerate(fixed_info):
-        label_font = font.nametofont("TkDefaultFont").copy()
-        label_font.configure(weight=part.get("font", "normal"))
+    for i, part in enumerate(info_list):
+        l_font = font.nametofont("TkDefaultFont").copy()
+        l_font.configure(weight=part.get("font", "normal"))
         lbl = tk.Label(dialog,
                        text=part["name"],
                        anchor="w",
                        justify="left",
-                       font=label_font)
+                       font=l_font)
         lbl.grid(column=1, row=i, sticky=part.get("sticky", "w"), pady=2, padx=5)
 
-    scroll_start_row = len(fixed_info)
+    scroll_start_row_index = len(info_list)
     total_rows = len(options) + 1
 
     scroll_frame = tk.Frame(dialog)
 
-    scroll_frame.grid(row=scroll_start_row, column=1, rowspan=total_rows - scroll_start_row + 1,
+    scroll_frame.grid(row=scroll_start_row_index, column=1, rowspan=total_rows - scroll_start_row_index + 1,
                       sticky='nsew', padx=5, pady=5)
 
+    #disables automatic resizing
     scroll_frame.grid_propagate(False)
     scroll_frame.config(width=300, height=150)
 
@@ -133,11 +135,8 @@ def show_main_panel(title, question, options, model_path, categories, states):
         for i, cat in enumerate(categories):
             lbl = tk.Label(inner_frame, text=cat, anchor="w", justify="left")
             lbl.grid(column=0, row=i, sticky='w', pady=1, padx=5)
-    else:
-        lbl = tk.Label(inner_frame, text="No categories available", anchor="w", justify="left")
-        lbl.grid(column=0, row=0, sticky='w', pady=1, padx=5)
 
-    for r in range(scroll_start_row, total_rows + 1):
+    for r in range(scroll_start_row_index, total_rows + 1):
         dialog.grid_rowconfigure(r, weight=1)
     dialog.grid_columnconfigure(1, weight=1)
 
@@ -155,7 +154,7 @@ def show_main_panel(title, question, options, model_path, categories, states):
     return user_choice['value']
 def display_confusion_matrix(matrix):
     import NetHandler
-    flattened = NetHandler.flatten_confusion_matrix(matrix)
+    flattened = NetHandler.confusion_matrix_to_list(matrix)
     root = tk.Tk()
     root.withdraw()
 

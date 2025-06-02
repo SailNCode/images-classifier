@@ -16,7 +16,7 @@ def load_classes(path: str) -> list[str]:
         categories = [line.strip() for line in file]
 
     return categories
-def flatten_confusion_matrix(confusion_matrix):
+def confusion_matrix_to_list(confusion_matrix):
     if not confusion_matrix:
         return []
 
