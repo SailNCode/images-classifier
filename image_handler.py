@@ -1,5 +1,5 @@
 import torchvision.transforms as transforms
-import Config
+import config
 
 config = Config.get_config()
 photo_dimension = config["photo"]["dimension"]

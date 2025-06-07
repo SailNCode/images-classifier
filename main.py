@@ -1,13 +1,13 @@
 import torch
 import torchvision
 from net import Net
-from ImageHandler import resize_tensor_normalize
-from NetHandler import initialize_net, load, load_classes, save
-import Gui
+from image_handler import resize_tensor_normalize
+from net_handler import initialize_net, load, load_classes, save
+import gui
 from torchvision import datasets
 from torch.utils.data import DataLoader
 from pathlib import Path
-import Config
+import config
 
 
 config = Config.get_config()

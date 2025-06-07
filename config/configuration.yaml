@@ -1,7 +1,7 @@
 
 paths:
   cifar: ./data
-  model: ./cifar_net.pth
+  model: ./data/model.pth
   categories: ./data/categories.txt
 train:
   num_classes: 10

@@ -153,7 +153,7 @@ def show_main_panel(title, question, options, model_path, categories, states):
     root.destroy()
     return user_choice['value']
 def display_confusion_matrix(matrix):
-    import NetHandler
+    import net_handler
     flattened = NetHandler.confusion_matrix_to_list(matrix)
     root = tk.Tk()
     root.withdraw()

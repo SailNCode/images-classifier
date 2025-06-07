@@ -10,8 +10,8 @@ from shutil import copy2
 from pathlib import Path
 from PIL import Image
 
-import Gui
-import ImageHandler
+import gui
+import image_handler
 
 
 class Net(nn.Module):

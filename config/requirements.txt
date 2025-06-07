@@ -5,3 +5,5 @@ numpy
 tqdm
 pyyaml
 pandas
+pyqt5
+pillow

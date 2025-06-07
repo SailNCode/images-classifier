@@ -1,6 +1,6 @@
 import yaml
 
-config_path = "configuration.yaml"
+config_path = "config/configuration.yaml"
 
 def get_config(config_path=config_path) -> dict:
     with open(config_path, "r") as file:
